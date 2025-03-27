@@ -9,7 +9,9 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [isTherapiesOpen, setIsTherapiesOpen] = React.useState(false);
+  const [isShopOpen, setIsShopOpen] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isShopMenuOpen, setIsShopMenuOpen] = React.useState(false);
 
   const therapies = [
     {
@@ -43,6 +45,17 @@ export default function Layout({ children }: LayoutProps) {
     {
       name: "Frequency Healing",
       path: "frequency-healing"
+    }
+  ];
+
+  const shopItems = [
+    {
+      name: "Shop",
+      path: "/shop"
+    },
+    {
+      name: "Gift Cards",
+      path: "/gift-cards"
     }
   ];
 
@@ -91,7 +104,38 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
                 <Link to="/clinic" className="text-yellow-600 hover:text-yellow-700 font-medium">Dr VJ's Clinic</Link>
                 <Link to="/acugraph" className="text-yellow-600 hover:text-yellow-700 font-medium">Acugraph</Link>
-                <Link to="/shop" className="text-yellow-600 hover:text-yellow-700 font-medium">Shop</Link>
+                
+                {/* Shop Dropdown Menu */}
+                <div className="relative group">
+                  <button
+                    className="text-yellow-600 hover:text-yellow-700 font-medium flex items-center"
+                    onMouseEnter={() => setIsShopOpen(true)}
+                    onClick={() => setIsShopOpen(!isShopOpen)}
+                  >
+                    Shop
+                    <ChevronDown className="ml-1 h-4 w-4" />
+                  </button>
+                  
+                  <div
+                    className={`absolute z-50 mt-2 w-40 bg-white rounded-lg shadow-xl transition-all duration-200 ${
+                      isShopOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+                    }`}
+                    onMouseLeave={() => setIsShopOpen(false)}
+                  >
+                    <div className="py-2">
+                      {shopItems.map((item, index) => (
+                        <Link
+                          key={index}
+                          to={item.path}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-700"
+                          onClick={() => setIsShopOpen(false)}
+                        >
+                          {item.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -169,13 +213,35 @@ export default function Layout({ children }: LayoutProps) {
             >
               Acugraph
             </Link>
-            <Link
-              to="/shop"
-              className="block px-3 py-2 rounded-md text-base font-medium text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Shop
-            </Link>
+            
+            {/* Mobile Shop Menu */}
+            <div className="relative">
+              <button
+                className="w-full flex items-center justify-between px-3 py-2 rounded-md text-base font-medium text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+                onClick={() => setIsShopMenuOpen(!isShopMenuOpen)}
+              >
+                Shop
+                <ChevronDown className={`ml-1 h-4 w-4 transform transition-transform ${isShopMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isShopMenuOpen && (
+                <div className="pl-4">
+                  {shopItems.map((item, index) => (
+                    <Link
+                      key={index}
+                      to={item.path}
+                      className="block px-3 py-2 text-base text-gray-700 hover:text-yellow-700 hover:bg-yellow-50"
+                      onClick={() => {
+                        setIsShopMenuOpen(false);
+                        setIsMobileMenuOpen(false);
+                      }}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+            
             <div className="px-3 py-2">
               <button className="w-full bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 font-semibold mb-2">
                 Login
@@ -294,6 +360,7 @@ export default function Layout({ children }: LayoutProps) {
                 <li><Link to="/privacy" className="hover:text-yellow-400 transition-colors duration-200">Privacy Policy</Link></li>
                 <li><Link to="/terms" className="hover:text-yellow-400 transition-colors duration-200">Terms & Conditions</Link></li>
                 <li><Link to="/cookies" className="hover:text-yellow-400 transition-colors duration-200">Cookie Policy</Link></li>
+                <li className="mt-6 text-xs"><Link to="/admin/login" className="text-gray-400 hover:text-yellow-400 transition-colors duration-200">Admin Portal</Link></li>
               </ul>
             </div>
           </div>

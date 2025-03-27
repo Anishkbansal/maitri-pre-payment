@@ -1,6 +1,17 @@
 // API Base URL - Change this to match your server URL when deployed
 const API_BASE_URL = 'http://localhost:3001/api';
 
+// Types
+interface GiftCard {
+  id: string;
+  code: string;
+  originalAmount: string | number;
+  currentAmount: string | number;
+  purchaseDate: string | null;
+  expiryDate: string | null;
+  [key: string]: any; // Allow for additional properties
+}
+
 // Send order confirmation emails
 export async function sendOrderEmails(orderData: {
   formData: any;
@@ -23,4 +34,389 @@ export async function sendOrderEmails(orderData: {
     console.error('Error sending order emails:', error);
     throw error;
   }
-} 
+}
+
+// Send gift card emails
+export async function sendGiftCardEmails(orderData: {
+  formData: any;
+}) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/send-gift-card-emails`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(orderData),
+    });
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error sending gift card emails:', error);
+    throw error;
+  }
+}
+
+// Gift Card Management API
+
+// Get all gift cards
+export async function getAllGiftCards() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/gift-cards`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    // Check if the response is ok
+    if (!response.ok) {
+      // Handle HTTP errors
+      return {
+        success: false,
+        giftCards: [],
+        message: `Failed to fetch gift cards: ${response.status} ${response.statusText}`
+      };
+    }
+    
+    const data = await response.json();
+    
+    // Log the raw data for debugging
+    console.log('Raw gift card data:', JSON.stringify(data, null, 2));
+    
+    // If the response doesn't match expected format, normalize it
+    if (!data || typeof data !== 'object') {
+      return {
+        success: false,
+        giftCards: [],
+        message: 'Invalid response from server'
+      };
+    }
+    
+    // Transform the data to match component expectations
+    if (data.giftCards && Array.isArray(data.giftCards)) {
+      data.giftCards = data.giftCards.map((card: GiftCard) => {
+        // Parse amounts as numbers to ensure they're treated correctly
+        const originalAmount = parseFloat(card.originalAmount.toString());
+        const currentAmount = parseFloat(card.currentAmount.toString());
+        
+        return {
+          ...card,
+          // Map field names to match component expectations
+          amount: isNaN(originalAmount) ? 0 : originalAmount,
+          balance: isNaN(currentAmount) ? 0 : currentAmount,
+          createdAt: card.purchaseDate || null,
+          expiresAt: card.expiryDate || null
+        };
+      });
+      
+      // Log the transformed data for debugging
+      console.log('Transformed gift card data:', JSON.stringify(data.giftCards, null, 2));
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting gift cards:', error);
+    // Return a structured error instead of throwing
+    return {
+      success: false,
+      giftCards: [],
+      message: error instanceof Error ? error.message : 'Network error while fetching gift cards'
+    };
+  }
+}
+
+// Alias for getAllGiftCards for component consistency
+export const fetchGiftCards = getAllGiftCards;
+
+// Get gift card by ID
+export async function getGiftCardById(id: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/gift-cards/${id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`Error getting gift card with ID ${id}:`, error);
+    throw error;
+  }
+}
+
+// Update gift card amount
+export async function updateGiftCardAmount(id: string, amount: number, note?: string) {
+  try {
+    // Ensure amount is a valid number
+    const numericAmount = parseFloat(amount.toString());
+    if (isNaN(numericAmount)) {
+      console.error('Invalid amount value:', amount);
+      return {
+        success: false,
+        message: 'Invalid amount value, must be a number'
+      };
+    }
+    
+    // Map the field names for the server
+    const payload = { 
+      currentAmount: numericAmount, // Server expects currentAmount as a number
+      note 
+    };
+
+    console.log('Sending update request with payload:', JSON.stringify(payload));
+
+    const response = await fetch(`${API_BASE_URL}/gift-cards/${id}/amount`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    
+    const responseText = await response.text();
+    console.log('Raw server response:', responseText);
+    
+    // Try to parse the response as JSON
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Failed to parse response as JSON:', e);
+      return {
+        success: false,
+        message: `Failed to parse server response: ${responseText}`
+      };
+    }
+    
+    // Check if the response is ok
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `Failed to update gift card: ${response.status} ${response.statusText}`,
+        details: data
+      };
+    }
+    
+    // If the response doesn't match expected format, normalize it
+    if (!data || typeof data !== 'object') {
+      return {
+        success: false,
+        message: 'Invalid response from server'
+      };
+    }
+    
+    // Transform response data to match component expectations
+    if (data.giftCard) {
+      data.giftCard = {
+        ...data.giftCard,
+        amount: data.giftCard.originalAmount,
+        balance: data.giftCard.currentAmount,
+        createdAt: data.giftCard.purchaseDate,
+        expiresAt: data.giftCard.expiryDate
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error updating gift card amount for ID ${id}:`, error);
+    // Return a structured error instead of throwing
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Network error while updating gift card'
+    };
+  }
+}
+
+// Close gift card
+export async function closeGiftCard(id: string, note?: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/gift-cards/${id}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: 'closed', note }),
+    });
+    
+    // Check if the response is ok
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `Failed to close gift card: ${response.status} ${response.statusText}`
+      };
+    }
+    
+    const data = await response.json();
+    
+    // If the response doesn't match expected format, normalize it
+    if (!data || typeof data !== 'object') {
+      return {
+        success: false,
+        message: 'Invalid response from server'
+      };
+    }
+    
+    // Transform response data to match component expectations
+    if (data.giftCard) {
+      data.giftCard = {
+        ...data.giftCard,
+        amount: data.giftCard.originalAmount,
+        balance: data.giftCard.currentAmount,
+        createdAt: data.giftCard.purchaseDate,
+        expiresAt: data.giftCard.expiryDate
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error closing gift card with ID ${id}:`, error);
+    // Return a structured error instead of throwing
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Network error while closing gift card'
+    };
+  }
+}
+
+// Product Management API
+
+// Get all products and orders
+export async function fetchProducts() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/products`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    // Check if the response is ok
+    if (!response.ok) {
+      return {
+        success: false,
+        products: [],
+        orders: [],
+        message: `Failed to fetch products: ${response.status} ${response.statusText}`
+      };
+    }
+    
+    const data = await response.json();
+    
+    // Log the raw data for debugging
+    console.log('Raw product data:', JSON.stringify(data, null, 2));
+    
+    // If the response doesn't match expected format, normalize it
+    if (!data || typeof data !== 'object') {
+      return {
+        success: false,
+        products: [],
+        orders: [],
+        message: 'Invalid response from server'
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting products:', error);
+    // Return a structured error instead of throwing
+    return {
+      success: false,
+      products: [],
+      orders: [],
+      message: error instanceof Error ? error.message : 'Network error while fetching products'
+    };
+  }
+}
+
+// Update product stock
+export async function updateProductStock(productId: string, stock: number) {
+  try {
+    // Ensure stock is a valid number
+    const numericStock = parseInt(stock.toString(), 10);
+    if (isNaN(numericStock) || numericStock < 0) {
+      console.error('Invalid stock value:', stock);
+      return {
+        success: false,
+        message: 'Invalid stock value, must be a non-negative number'
+      };
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/products/${productId}/stock`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ stock: numericStock }),
+    });
+    
+    // Check if the response is ok
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `Failed to update product stock: ${response.status} ${response.statusText}`
+      };
+    }
+    
+    const data = await response.json();
+    
+    // If the response doesn't match expected format, normalize it
+    if (!data || typeof data !== 'object') {
+      return {
+        success: false,
+        message: 'Invalid response from server'
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error updating product stock for ID ${productId}:`, error);
+    // Return a structured error instead of throwing
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Network error while updating product stock'
+    };
+  }
+}
+
+// Update order status
+export async function updateOrderStatus(orderId: string, status: 'pending' | 'out_for_delivery' | 'completed') {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status }),
+    });
+    
+    // Check if the response is ok
+    if (!response.ok) {
+      return {
+        success: false,
+        message: `Failed to update order status: ${response.status} ${response.statusText}`
+      };
+    }
+    
+    const data = await response.json();
+    
+    // If the response doesn't match expected format, normalize it
+    if (!data || typeof data !== 'object') {
+      return {
+        success: false,
+        message: 'Invalid response from server'
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error updating order status for ID ${orderId}:`, error);
+    // Return a structured error instead of throwing
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Network error while updating order status'
+    };
+  }
+}
