@@ -1,6 +1,9 @@
 // API Base URL - Change this to match your server URL when deployed
 const API_BASE_URL = 'http://localhost:3001/api';
 
+// Export API_BASE_URL for use in other utilities
+export { API_BASE_URL };
+
 // Types
 interface GiftCard {
   id: string;
@@ -20,7 +23,7 @@ export async function sendOrderEmails(orderData: {
   isUKDelivery: boolean;
 }) {
   try {
-    const response = await fetch(`${API_BASE_URL}/send-order-emails`, {
+    const response = await fetch(`${API_BASE_URL}/payments/send-order-emails`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -41,7 +44,7 @@ export async function sendGiftCardEmails(orderData: {
   formData: any;
 }) {
   try {
-    const response = await fetch(`${API_BASE_URL}/send-gift-card-emails`, {
+    const response = await fetch(`${API_BASE_URL}/payments/send-gift-card-emails`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -94,27 +97,38 @@ export async function getAllGiftCards() {
     }
     
     // Transform the data to match component expectations
-    if (data.giftCards && Array.isArray(data.giftCards)) {
-      data.giftCards = data.giftCards.map((card: GiftCard) => {
-        // Parse amounts as numbers to ensure they're treated correctly
-        const originalAmount = parseFloat(card.originalAmount.toString());
-        const currentAmount = parseFloat(card.currentAmount.toString());
-        
-        return {
-          ...card,
-          // Map field names to match component expectations
-          amount: isNaN(originalAmount) ? 0 : originalAmount,
-          balance: isNaN(currentAmount) ? 0 : currentAmount,
-          createdAt: card.purchaseDate || null,
-          expiresAt: card.expiryDate || null
-        };
-      });
+    const giftCards = data.data && Array.isArray(data.data) ? data.data.map((card: any) => {
+      // Parse amounts as numbers to ensure they're treated correctly
+      const originalAmount = parseFloat(card.originalAmount?.toString() || "0");
+      const currentAmount = parseFloat(card.currentAmount?.toString() || "0");
       
-      // Log the transformed data for debugging
-      console.log('Transformed gift card data:', JSON.stringify(data.giftCards, null, 2));
-    }
+      return {
+        ...card,
+        // Map field names to match component expectations
+        id: card.id,
+        code: card.code,
+        amount: isNaN(originalAmount) ? 0 : originalAmount,
+        balance: isNaN(currentAmount) ? 0 : currentAmount,
+        createdAt: card.purchaseDate || null,
+        expiresAt: card.expiryDate || null,
+        buyerName: card.buyerName,
+        buyerEmail: card.buyerEmail,
+        recipientName: card.recipientName,
+        recipientEmail: card.recipientEmail,
+        status: card.status,
+        message: card.message,
+        history: card.history
+      };
+    }) : [];
     
-    return data;
+    // Log the transformed data for debugging
+    console.log('Transformed gift card data:', JSON.stringify(giftCards, null, 2));
+    
+    return {
+      success: true,
+      giftCards: giftCards,
+      message: 'Gift cards fetched successfully'
+    };
   } catch (error) {
     console.error('Error getting gift cards:', error);
     // Return a structured error instead of throwing
@@ -176,29 +190,17 @@ export async function updateGiftCardAmount(id: string, amount: number, note?: st
       body: JSON.stringify(payload),
     });
     
-    const responseText = await response.text();
-    console.log('Raw server response:', responseText);
-    
-    // Try to parse the response as JSON
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (e) {
-      console.error('Failed to parse response as JSON:', e);
-      return {
-        success: false,
-        message: `Failed to parse server response: ${responseText}`
-      };
-    }
-    
     // Check if the response is ok
     if (!response.ok) {
+      const errorText = await response.text();
       return {
         success: false,
         message: `Failed to update gift card: ${response.status} ${response.statusText}`,
-        details: data
+        details: errorText
       };
     }
+    
+    const data = await response.json();
     
     // If the response doesn't match expected format, normalize it
     if (!data || typeof data !== 'object') {
@@ -209,17 +211,19 @@ export async function updateGiftCardAmount(id: string, amount: number, note?: st
     }
     
     // Transform response data to match component expectations
-    if (data.giftCard) {
-      data.giftCard = {
-        ...data.giftCard,
-        amount: data.giftCard.originalAmount,
-        balance: data.giftCard.currentAmount,
-        createdAt: data.giftCard.purchaseDate,
-        expiresAt: data.giftCard.expiryDate
-      };
-    }
+    const updatedGiftCard = data.data ? {
+      ...data.data,
+      amount: data.data.originalAmount,
+      balance: data.data.currentAmount,
+      createdAt: data.data.purchaseDate,
+      expiresAt: data.data.expiryDate
+    } : null;
     
-    return data;
+    return {
+      success: true,
+      giftCard: updatedGiftCard,
+      message: 'Gift card amount updated successfully'
+    };
   } catch (error) {
     console.error(`Error updating gift card amount for ID ${id}:`, error);
     // Return a structured error instead of throwing
@@ -243,9 +247,11 @@ export async function closeGiftCard(id: string, note?: string) {
     
     // Check if the response is ok
     if (!response.ok) {
+      const errorText = await response.text();
       return {
         success: false,
-        message: `Failed to close gift card: ${response.status} ${response.statusText}`
+        message: `Failed to close gift card: ${response.status} ${response.statusText}`,
+        details: errorText
       };
     }
     
@@ -260,17 +266,19 @@ export async function closeGiftCard(id: string, note?: string) {
     }
     
     // Transform response data to match component expectations
-    if (data.giftCard) {
-      data.giftCard = {
-        ...data.giftCard,
-        amount: data.giftCard.originalAmount,
-        balance: data.giftCard.currentAmount,
-        createdAt: data.giftCard.purchaseDate,
-        expiresAt: data.giftCard.expiryDate
-      };
-    }
+    const updatedGiftCard = data.data ? {
+      ...data.data,
+      amount: data.data.originalAmount,
+      balance: data.data.currentAmount,
+      createdAt: data.data.purchaseDate,
+      expiresAt: data.data.expiryDate
+    } : null;
     
-    return data;
+    return {
+      success: true,
+      giftCard: updatedGiftCard,
+      message: 'Gift card closed successfully'
+    };
   } catch (error) {
     console.error(`Error closing gift card with ID ${id}:`, error);
     // Return a structured error instead of throwing
@@ -318,7 +326,16 @@ export async function fetchProducts() {
       };
     }
     
-    return data;
+    // Transform the data if needed
+    const products = data.data && data.data.products ? data.data.products : [];
+    const orders = data.data && data.data.orders ? data.data.orders : [];
+    
+    return {
+      success: true,
+      products,
+      orders,
+      message: 'Products and orders fetched successfully'
+    };
   } catch (error) {
     console.error('Error getting products:', error);
     // Return a structured error instead of throwing
@@ -344,7 +361,7 @@ export async function updateProductStock(productId: string, stock: number) {
       };
     }
     
-    const response = await fetch(`${API_BASE_URL}/products/${productId}/stock`, {
+    const response = await fetch(`${API_BASE_URL}/products/product/${productId}/stock`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -354,9 +371,11 @@ export async function updateProductStock(productId: string, stock: number) {
     
     // Check if the response is ok
     if (!response.ok) {
+      const errorText = await response.text();
       return {
         success: false,
-        message: `Failed to update product stock: ${response.status} ${response.statusText}`
+        message: `Failed to update product stock: ${response.status} ${response.statusText}`,
+        details: errorText
       };
     }
     
@@ -370,7 +389,11 @@ export async function updateProductStock(productId: string, stock: number) {
       };
     }
     
-    return data;
+    return {
+      success: true,
+      product: data.data || null,
+      message: data.message || 'Product stock updated successfully'
+    };
   } catch (error) {
     console.error(`Error updating product stock for ID ${productId}:`, error);
     // Return a structured error instead of throwing
@@ -384,7 +407,7 @@ export async function updateProductStock(productId: string, stock: number) {
 // Update order status
 export async function updateOrderStatus(orderId: string, status: 'pending' | 'out_for_delivery' | 'completed') {
   try {
-    const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+    const response = await fetch(`${API_BASE_URL}/products/order/${orderId}/status`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -394,9 +417,11 @@ export async function updateOrderStatus(orderId: string, status: 'pending' | 'ou
     
     // Check if the response is ok
     if (!response.ok) {
+      const errorText = await response.text();
       return {
         success: false,
-        message: `Failed to update order status: ${response.status} ${response.statusText}`
+        message: `Failed to update order status: ${response.status} ${response.statusText}`,
+        details: errorText
       };
     }
     
@@ -410,7 +435,11 @@ export async function updateOrderStatus(orderId: string, status: 'pending' | 'ou
       };
     }
     
-    return data;
+    return {
+      success: true,
+      order: data.data || null,
+      message: data.message || 'Order status updated successfully'
+    };
   } catch (error) {
     console.error(`Error updating order status for ID ${orderId}:`, error);
     // Return a structured error instead of throwing

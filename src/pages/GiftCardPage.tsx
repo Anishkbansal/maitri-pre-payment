@@ -5,6 +5,8 @@ import { Loader2, Mail, X } from 'lucide-react';
 import Toast from '../components/shop/Toast';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
+import StripePayment from '../components/payments/StripePayment';
+import { completeGiftCardPayment } from '../utils/payment';
 
 interface GiftCardFormData {
   buyerName: string;
@@ -67,6 +69,9 @@ export default function GiftCardPage() {
     cvv: '',
     email: ''
   });
+
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
 
   // Initialize countries on component mount
   useEffect(() => {
@@ -218,9 +223,24 @@ export default function GiftCardPage() {
     setErrorMessage(null);
 
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // Show the payment component instead of processing immediately
+      setShowPayment(true);
+    } catch (error) {
+      console.error('Failed to process gift card:', error);
+      setErrorMessage('There was an error processing your payment. Please try again.');
+      setToast({
+        message: 'Payment failed. Please try again.',
+        type: 'error'
+      });
+      setIsLoading(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (paymentId: string) => {
+    setPaymentIntentId(paymentId);
+    setSendingEmails(true);
+    
+    try {
       // Generate gift code if not already set
       const giftCode = formData.giftCode || generateGiftCode();
       
@@ -229,75 +249,49 @@ export default function GiftCardPage() {
       const expiryDate = new Date(orderDate);
       expiryDate.setFullYear(expiryDate.getFullYear() + 1);
       
-      // Payment successful, now send emails
-      setSendingEmails(true);
-      
-      try {
-        await sendGiftCardEmails({
-          formData: {
-            ...formData,
-            giftCode,
-            orderDate: orderDate.toLocaleDateString(),
-            expiryDate: expiryDate.toLocaleDateString()
-          }
-        });
-        
-        setToast({
-          message: 'Payment successful! Gift card details have been emailed.',
-          type: 'success'
-        });
-        
-        setIsSent(true);
-      } catch (emailError) {
-        console.error('Failed to send gift card emails:', emailError);
-        setToast({
-          message: 'Payment successful, but failed to send gift card emails.',
-          type: 'info'
-        });
-      } finally {
-        setSendingEmails(false);
-      }
-      
-      console.log('Gift card details:', {
+      // Complete the gift card payment on the server
+      const giftCardData = {
         ...formData,
         giftCode,
         orderDate: orderDate.toLocaleDateString(),
         expiryDate: expiryDate.toLocaleDateString()
+      };
+      
+      await completeGiftCardPayment({
+        paymentIntentId: paymentId,
+        giftCardData
       });
       
-      // Reset form and go back to step 1
-      setFormData({
-        buyerName: '',
-        buyerEmail: '',
-        recipientName: '',
-        recipientEmail: '',
-        amount: 50,
-        message: '',
-        giftCode: '',
-        firstName: '',
-        lastName: '',
-        phone: '',
-        address: '',
-        city: '',
-        postcode: '',
-        country: '',
-        cardNumber: '',
-        cardName: '',
-        expiryDate: '',
-        cvv: '',
-        email: ''
-      });
-      setStep(1);
-    } catch (error) {
-      console.error('Failed to process gift card:', error);
-      setErrorMessage('There was an error processing your payment. Please try again.');
+      // Send emails
+      await sendGiftCardEmails({ formData: giftCardData });
+      
       setToast({
-        message: 'Payment failed. Please try again.',
-        type: 'error'
+        message: 'Payment successful! Gift card details have been emailed.',
+        type: 'success'
+      });
+      
+      setIsSent(true);
+    } catch (emailError) {
+      console.error('Failed to send gift card emails:', emailError);
+      setToast({
+        message: 'Payment successful, but failed to send gift card emails.',
+        type: 'info'
       });
     } finally {
+      setSendingEmails(false);
       setIsLoading(false);
     }
+  };
+
+  const handlePaymentError = (error: Error) => {
+    console.error('Payment error:', error);
+    setErrorMessage('There was an error processing your payment. Please try again.');
+    setToast({
+      message: 'Payment failed. Please try again.',
+      type: 'error'
+    });
+    setIsLoading(false);
+    setShowPayment(false);
   };
   
   const resetForm = () => {
@@ -472,245 +466,220 @@ export default function GiftCardPage() {
                       </button>
                     </form>
                   ) : (
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-semibold text-gray-800">Payment Details</h3>
-                        <button 
-                          type="button"
-                          onClick={goBackToGiftInfo}
-                          className="text-sm text-yellow-600 hover:text-yellow-700"
-                        >
-                          &larr; Back to Gift Details
-                        </button>
-                      </div>
-
-                      <div className="bg-yellow-50 p-4 rounded-md mb-6">
-                        <h4 className="font-medium text-yellow-800 mb-2">Gift Card Summary</h4>
-                        <p className="text-yellow-800">Amount: <span className="font-bold">£{formData.amount.toFixed(2)}</span></p>
-                        <p className="text-yellow-800">Recipient: {formData.recipientName}</p>
-                      </div>
-
-                      {/* Personal Information */}
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4">Personal Information</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                            <input
-                              type="text"
-                              name="firstName"
-                              value={formData.firstName}
-                              onChange={handleInputChange}
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                            <input
-                              type="text"
-                              name="lastName"
-                              value={formData.lastName}
-                              onChange={handleInputChange}
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input
-                              type="email"
-                              name="email"
-                              value={formData.email || formData.buyerEmail}
-                              onChange={handleInputChange}
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                            <PhoneInput
-                              country={'gb'}
-                              value={formData.phone}
-                              onChange={handlePhoneChange}
-                              inputClass="w-full px-3 py-2 border border-gray-300 rounded-md"
-                              containerClass="w-full"
-                              excludeCountries={RESTRICTED_COUNTRIES.map(country => 
-                                Country.getAllCountries().find(c => c.name === country)?.isoCode
-                              ).filter(Boolean) as string[]}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Shipping Address */}
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4">Billing Address</h3>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                            <select
-                              name="country"
-                              value={selectedCountry?.isoCode || ''}
-                              onChange={(e) => {
-                                const country = availableCountries.find(c => c.isoCode === e.target.value);
-                                if (country) {
-                                  handleCountryChange(country);
-                                }
-                              }}
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    <>
+                      {!showPayment ? (
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-semibold text-gray-800">Payment Details</h3>
+                            <button 
+                              type="button"
+                              onClick={goBackToGiftInfo}
+                              className="text-sm text-yellow-600 hover:text-yellow-700"
                             >
-                              <option value="">Select Country</option>
-                              {availableCountries.map(country => (
-                                <option key={country.isoCode} value={country.isoCode}>
-                                  {country.name}
-                                </option>
-                              ))}
-                            </select>
+                              &larr; Back to Gift Details
+                            </button>
                           </div>
 
+                          <div className="bg-yellow-50 p-4 rounded-md mb-6">
+                            <h4 className="font-medium text-yellow-800 mb-2">Gift Card Summary</h4>
+                            <p className="text-yellow-800">Amount: <span className="font-bold">£{formData.amount.toFixed(2)}</span></p>
+                            <p className="text-yellow-800">Recipient: {formData.recipientName}</p>
+                          </div>
+
+                          {/* Personal Information */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                            <input
-                              type="text"
-                              name="address"
-                              value={formData.address}
-                              onChange={handleInputChange}
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                              {availableCities.length > 0 ? (
-                                <select
-                                  name="city"
-                                  value={formData.city}
-                                  onChange={handleSelectChange}
-                                  required
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                >
-                                  <option value="">Select City</option>
-                                  {availableCities.map(city => (
-                                    <option key={city.name} value={city.name}>
-                                      {city.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : (
+                            <h3 className="text-lg font-semibold mb-4">Personal Information</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                                 <input
                                   type="text"
-                                  name="city"
-                                  value={formData.city}
+                                  name="firstName"
+                                  value={formData.firstName}
                                   onChange={handleInputChange}
                                   required
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                  placeholder="Enter city name"
                                 />
-                              )}
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
-                              <input
-                                type="text"
-                                name="postcode"
-                                value={formData.postcode}
-                                onChange={handleInputChange}
-                                required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                              />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                                <input
+                                  type="text"
+                                  name="lastName"
+                                  value={formData.lastName}
+                                  onChange={handleInputChange}
+                                  required
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input
+                                  type="email"
+                                  name="email"
+                                  value={formData.email || formData.buyerEmail}
+                                  onChange={handleInputChange}
+                                  required
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                                <PhoneInput
+                                  country={'gb'}
+                                  value={formData.phone}
+                                  onChange={handlePhoneChange}
+                                  inputClass="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                  containerClass="w-full"
+                                  excludeCountries={RESTRICTED_COUNTRIES.map(country => 
+                                    Country.getAllCountries().find(c => c.name === country)?.isoCode
+                                  ).filter(Boolean) as string[]}
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
 
-                      {/* Payment Information */}
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4">Payment Information</h3>
-                        <div className="space-y-4">
+                          {/* Shipping Address */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
-                            <input
-                              type="text"
-                              name="cardNumber"
-                              value={formData.cardNumber}
-                              onChange={handleInputChange}
-                              required
-                              maxLength={19}
-                              placeholder="1234 5678 9012 3456"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Cardholder Name</label>
-                            <input
-                              type="text"
-                              name="cardName"
-                              value={formData.cardName}
-                              onChange={handleInputChange}
-                              required
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
-                              <input
-                                type="text"
-                                name="expiryDate"
-                                value={formData.expiryDate}
-                                onChange={handleInputChange}
-                                required
-                                maxLength={5}
-                                placeholder="MM/YY"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
-                              <input
-                                type="text"
-                                name="cvv"
-                                value={formData.cvv}
-                                onChange={handleInputChange}
-                                required
-                                maxLength={4}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                            <h3 className="text-lg font-semibold mb-4">Billing Address</h3>
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                                <select
+                                  name="country"
+                                  value={selectedCountry?.name || ''}
+                                  onChange={(e) => {
+                                    const country = availableCountries.find(c => c.name === e.target.value);
+                                    if (country) {
+                                      handleCountryChange(country);
+                                    }
+                                  }}
+                                  className="w-full p-2 border border-gray-300 rounded-md"
+                                  required
+                                >
+                                  <option value="">Select Country</option>
+                                  {availableCountries.map(country => (
+                                    <option key={country.isoCode} value={country.name}>
+                                      {country.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
 
-                      {errorMessage && (
-                        <div className="bg-red-100 text-red-700 p-3 rounded-md">
-                          {errorMessage}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                                {availableCities.length > 0 ? (
+                                  <select
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleSelectChange}
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                    required
+                                  >
+                                    <option value="">Select City</option>
+                                    {availableCities.map(city => (
+                                      <option key={city.name} value={city.name}>
+                                        {city.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleInputChange}
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                    required
+                                  />
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                                <input
+                                  type="text"
+                                  name="address"
+                                  value={formData.address}
+                                  onChange={handleInputChange}
+                                  className="w-full p-2 border border-gray-300 rounded-md"
+                                  required
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Postcode</label>
+                                <input
+                                  type="text"
+                                  name="postcode"
+                                  value={formData.postcode}
+                                  onChange={handleInputChange}
+                                  className="w-full p-2 border border-gray-300 rounded-md"
+                                  required
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {errorMessage && (
+                            <div className="bg-red-100 text-red-700 p-3 rounded-md">
+                              {errorMessage}
+                            </div>
+                          )}
+                          
+                          <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full bg-yellow-600 text-white py-3 rounded-md hover:bg-yellow-700 transition-colors duration-150 flex items-center justify-center text-lg font-medium disabled:opacity-50"
+                          >
+                            {isLoading ? (
+                              <>
+                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              `Proceed to Payment`
+                            )}
+                          </button>
+                        </form>
+                      ) : (
+                        <div className="space-y-6">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-semibold text-gray-800">Complete Payment</h3>
+                            <button 
+                              type="button"
+                              onClick={() => setShowPayment(false)}
+                              className="text-sm text-yellow-600 hover:text-yellow-700"
+                            >
+                              &larr; Back to Details
+                            </button>
+                          </div>
+                          
+                          <div className="bg-yellow-50 p-4 rounded-md mb-6">
+                            <h4 className="font-medium text-yellow-800 mb-2">Gift Card Summary</h4>
+                            <p className="text-yellow-800">Amount: <span className="font-bold">£{formData.amount.toFixed(2)}</span></p>
+                            <p className="text-yellow-800">Recipient: {formData.recipientName}</p>
+                          </div>
+                          
+                          <StripePayment
+                            amount={formData.amount}
+                            currency="gbp"
+                            description={`Gift Card for ${formData.recipientName}`}
+                            metadata={{
+                              recipientName: formData.recipientName,
+                              recipientEmail: formData.recipientEmail,
+                              buyerName: formData.buyerName,
+                              buyerEmail: formData.buyerEmail
+                            }}
+                            customerEmail={formData.email || formData.buyerEmail}
+                            customerCountry={formData.country}
+                            paymentType="gift-card"
+                            onPaymentSuccess={handlePaymentSuccess}
+                            onPaymentError={handlePaymentError}
+                          />
                         </div>
                       )}
-                      
-                      <button
-                        type="submit"
-                        disabled={isLoading || sendingEmails}
-                        className="w-full bg-yellow-600 text-white py-3 rounded-md hover:bg-yellow-700 transition-colors duration-150 flex items-center justify-center text-lg font-medium disabled:opacity-50"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                            Processing Payment...
-                          </>
-                        ) : sendingEmails ? (
-                          <>
-                            <Mail className="h-5 w-5 mr-2" />
-                            Sending Gift Card...
-                          </>
-                        ) : (
-                          `Pay £${formData.amount.toFixed(2)}`
-                        )}
-                      </button>
-                    </form>
+                    </>
                   )}
                 </>
               )}

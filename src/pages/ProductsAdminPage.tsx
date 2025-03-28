@@ -99,7 +99,7 @@ const ProductsAdminPage: React.FC = () => {
           [productId]: false
         });
       } else {
-        setError('Failed to update stock');
+        setError('Failed to update stock: ' + response.message);
       }
     } catch (err) {
       setError('An error occurred while updating stock');
@@ -118,7 +118,7 @@ const ProductsAdminPage: React.FC = () => {
             : order
         ));
       } else {
-        setError('Failed to update order status');
+        setError('Failed to update order status: ' + response.message);
       }
     } catch (err) {
       setError('An error occurred while updating order status');

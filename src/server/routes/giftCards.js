@@ -1,6 +1,6 @@
 import express from 'express';
 import giftCardDb from '../db/giftCards.js';
-import emailService from '../emails/index.js';
+import * as emailService from '../emails/index.js';
 
 const router = express.Router();
 

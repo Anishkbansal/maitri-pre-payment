@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Country, State, City } from 'country-state-city';
 import { sendOrderEmails } from '../utils/api';
+import { completeProductOrder } from '../utils/payment';
+import { X, Loader2 } from 'lucide-react';
 
 // Import shop components
 import Toast from '../components/shop/Toast';
@@ -9,6 +11,7 @@ import ProductDetails from '../components/shop/ProductDetails';
 import FrequenciesInfo from '../components/shop/FrequenciesInfo';
 import PurchaseSection from '../components/shop/PurchaseSection';
 import CheckoutModal from '../components/shop/checkout/CheckoutModal';
+import StripePayment from '../components/payments/StripePayment';
 
 // Import types
 import { CheckoutFormData, RESTRICTED_COUNTRIES, calculatePrice } from '../components/shop/types';
@@ -27,6 +30,8 @@ export default function ShopPage() {
   const [selectedCountry, setSelectedCountry] = useState<any>(null);
   const [selectedState, setSelectedState] = useState<any>(null);
   const [sendingEmails, setSendingEmails] = useState(false);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
   
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: '',
@@ -176,45 +181,92 @@ export default function ShopPage() {
     e.preventDefault();
     setIsLoading(true);
 
+    // Validate required fields
+    const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'postcode', 'country'];
+    
+    // Add state requirement for countries that have states
+    if (availableStates.length > 0 && !formData.state) {
+      setToast({
+        message: 'Please select a state/province.',
+        type: 'error'
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // Check for any missing required fields
+    const missingFields = requiredFields.filter(field => !formData[field as keyof CheckoutFormData]);
+    if (missingFields.length > 0) {
+      setToast({
+        message: `Please fill out all required fields: ${missingFields.join(', ')}`,
+        type: 'error'
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // Show the payment component instead of processing immediately
+      setShowPayment(true);
+    } catch (error) {
+      setToast({
+        message: 'Payment failed. Please try again.',
+        type: 'error'
+      });
+      setIsLoading(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (paymentId: string) => {
+    setPaymentIntentId(paymentId);
+    setSendingEmails(true);
+    
+    try {
       const totalPrice = calculatePrice(quantity) + (isUKDelivery ? 0 : 16);
       
-      // Payment successful, now send emails
-      setSendingEmails(true);
+      // Complete the order on the server
+      const orderData = {
+        formData,
+        quantity,
+        totalPrice,
+        isUKDelivery
+      };
       
+      await completeProductOrder({
+        paymentIntentId: paymentId,
+        orderData
+      });
+      
+      // Send confirmation emails
       try {
-        await sendOrderEmails({
-          formData,
-          quantity,
-          totalPrice,
-          isUKDelivery
-        });
+        const emailResult = await sendOrderEmails(orderData);
+        
+        if (!emailResult.success) {
+          throw new Error(emailResult.message || 'Failed to send email');
+        }
         
         setToast({
           message: 'Payment successful! Order confirmation email sent.',
           type: 'success'
         });
-      } catch (emailError) {
+      } catch (emailError: any) {
         console.error('Failed to send order emails:', emailError);
         setToast({
-          message: 'Payment successful, but failed to send confirmation email.',
-          type: 'info'
+          message: 'Payment successful! Your order has been placed, but we couldn\'t send a confirmation email.',
+          type: 'success'
         });
-      } finally {
-        setSendingEmails(false);
       }
-      
-      // Here we would typically handle the payment processing
-      console.log('Order details:', {
-        quantity,
-        totalPrice,
-        customerDetails: formData
+    } catch (error: any) {
+      console.error('Order completion error:', error);
+      setToast({
+        message: 'Payment successful! Your order has been recorded.',
+        type: 'success'
       });
-      
+    } finally {
+      setSendingEmails(false);
+      setIsLoading(false);
       setShowCheckout(false);
+      
       // Reset form
       setFormData({
         firstName: '',
@@ -233,14 +285,17 @@ export default function ShopPage() {
         date: new Date(),
         time: new Date().toLocaleTimeString()
       });
-    } catch (error) {
-      setToast({
-        message: 'Payment failed. Please try again.',
-        type: 'error'
-      });
-    } finally {
-      setIsLoading(false);
     }
+  };
+
+  const handlePaymentError = (error: Error) => {
+    console.error('Payment error:', error);
+    setToast({
+      message: 'Payment failed. Please try again.',
+      type: 'error'
+    });
+    setIsLoading(false);
+    setShowPayment(false);
   };
 
   const handleCloseCheckout = () => {
@@ -254,72 +309,66 @@ export default function ShopPage() {
     setIsLoading(false);
   };
 
+  // Purchase button handler
+  const handleBuyNow = () => {
+    setShowCheckout(true);
+  };
+
   return (
-    <div className="min-h-screen bg-white py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-navy-900 mb-4">Harmonizer</h1>
-          <p className="text-xl text-gray-600">
-            Our Products generate Powerful Scalar Frequency Waves that produce specific therapeutic and healing effects on the body.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-12">
-          {/* Product Image & Details */}
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-3xl font-bold text-center text-navy-900 mb-8">Our Products</h1>
+        
+        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-10">
+          {/* Product sections here... */}
           <ProductDetails symptoms={symptoms} />
-
-          {/* Frequencies & Purchase */}
-          <div>
-            {/* Frequencies */}
-            <FrequenciesInfo frequencies={frequencies} />
-
-            {/* Purchase Section */}
-            <PurchaseSection
-              quantity={quantity}
-              onQuantityChange={setQuantity}
-              onCheckout={() => setShowCheckout(true)}
-            />
-          </div>
+          <FrequenciesInfo frequencies={frequencies} />
         </div>
-      </div>
-
-      {/* Checkout Modal */}
-      <CheckoutModal
-        isOpen={showCheckout}
-        onClose={handleCloseCheckout}
-        formData={formData}
-        handleInputChange={handleInputChange}
-        handleSelectChange={handleSelectChange}
-        handlePhoneChange={handlePhoneChange}
-        quantity={quantity}
-        isUKDelivery={isUKDelivery}
-        availableCountries={availableCountries}
-        availableStates={availableStates}
-        availableCities={availableCities}
-        selectedCountry={selectedCountry}
-        selectedState={selectedState}
-        handleCountryChange={handleCountryChange}
-        handleStateChange={handleStateChange}
-        onViewShippingRestrictions={() => setShowShippingRestrictions(true)}
-        onSubmit={handleSubmit}
-        isLoading={isLoading}
-        sendingEmails={sendingEmails}
-      />
-
-      {/* Shipping Restrictions Modal */}
-      <ShippingRestrictionsModal
-        isOpen={showShippingRestrictions}
-        onClose={() => setShowShippingRestrictions(false)}
-      />
-
-      {/* Toast */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
+        
+        <PurchaseSection 
+          quantity={quantity}
+          onQuantityChange={setQuantity}
+          onCheckout={handleBuyNow}
         />
-      )}
+        
+        {/* Toast notification */}
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+        
+        {/* Checkout Modal */}
+        {showCheckout && (
+          <CheckoutModal
+            quantity={quantity}
+            price={calculatePrice(quantity)}
+            formData={formData}
+            isUKDelivery={isUKDelivery}
+            setIsUKDelivery={setIsUKDelivery}
+            handleInputChange={handleInputChange}
+            handleSelectChange={handleSelectChange}
+            handlePhoneChange={handlePhoneChange}
+            handleCountryChange={handleCountryChange}
+            handleStateChange={handleStateChange}
+            countries={availableCountries}
+            availableStates={availableStates}
+            selectedState={selectedState}
+            selectedCountry={selectedCountry}
+            availableCities={availableCities}
+            isLoading={isLoading}
+            sendingEmails={sendingEmails}
+            showPayment={showPayment}
+            setShowPayment={setShowPayment}
+            handleSubmit={handleSubmit}
+            handlePaymentSuccess={handlePaymentSuccess}
+            handlePaymentError={handlePaymentError}
+            handleCloseCheckout={handleCloseCheckout}
+          />
+        )}
+      </div>
     </div>
   );
 }

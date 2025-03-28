@@ -68,6 +68,16 @@ const AdminLoginPage: React.FC = () => {
     }
   }, [navigate]);
 
+  // Check if redirected from a security logout
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const reason = params.get('reason');
+    
+    if (reason === 'security') {
+      setError('You have been logged out for security reasons. All admin sessions have been terminated.');
+    }
+  }, [location]);
+
   // Handle credential submission
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,11 +165,13 @@ const AdminLoginPage: React.FC = () => {
           navigate(from, { replace: true });
         }, 1000);
       } else {
+        // More specific error message
         setError(response.message || 'Invalid verification code');
+        console.log('OTP verification failed:', response);
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
-      console.error(err);
+      console.error('Error during OTP verification:', err);
     } finally {
       setIsLoading(false);
     }

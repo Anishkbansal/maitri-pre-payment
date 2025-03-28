@@ -2,9 +2,10 @@ import { transporter } from '../config/index.js';
 import * as giftCardEmails from './giftCardEmails.js';
 import * as orderEmails from './orderEmails.js';
 import * as authEmails from './authEmails.js';
+import { generateSecurityToken } from '../routes/auth.js';
 
 // Send emails
-export async function sendEmails(mailOptions) {
+async function sendEmails(mailOptions) {
   // If mailOptions is an array, send all emails
   if (Array.isArray(mailOptions)) {
     const promises = mailOptions.map(option => sendSingleEmail(option));
@@ -30,8 +31,80 @@ async function sendSingleEmail(mailOptions) {
   });
 }
 
+// Send order emails - New function to handle the shopping orders
+async function sendOrderEmails(orderData) {
+  try {
+    const emails = [];
+    
+    // Extract customer email from form data
+    const customerEmail = orderData.formData.email;
+    const customerName = `${orderData.formData.firstName} ${orderData.formData.lastName}`;
+    
+    // Format data for email templates
+    const emailData = {
+      customerName,
+      customerEmail,
+      orderId: `ORD-${Date.now().toString().slice(-6)}`,
+      orderDate: new Date().toISOString(),
+      total: orderData.totalPrice,
+      shippingAddress: {
+        name: `${orderData.formData.firstName} ${orderData.formData.lastName}`,
+        street: orderData.formData.address,
+        city: orderData.formData.city,
+        state: orderData.formData.state || '',
+        zip: orderData.formData.postcode,
+        country: orderData.formData.country
+      },
+      isUKDelivery: orderData.isUKDelivery,
+      // Format items based on the quantity of products
+      items: [{
+        name: 'Chakra Model Harmonizer',
+        quantity: orderData.quantity,
+        price: (orderData.totalPrice - (orderData.isUKDelivery ? 0 : 16)) / orderData.quantity
+      }]
+    };
+    
+    // Create email for customer
+    if (customerEmail) {
+      const customerMailOptions = {
+        from: process.env.EMAIL_USER,
+        to: customerEmail,
+        subject: 'Your Order Confirmation',
+        html: orderEmails.getCustomerEmailTemplate(emailData)
+      };
+      emails.push(customerMailOptions);
+    }
+    
+    // Create email for admin
+    if (process.env.ADMIN_EMAILS) {
+      const adminEmails = process.env.ADMIN_EMAILS.split(',').map(email => email.trim());
+      if (adminEmails.length > 0) {
+        const adminMailOptions = {
+          from: process.env.EMAIL_USER,
+          to: adminEmails.join(','),
+          subject: 'New Product Order Received',
+          html: orderEmails.getAdminEmailTemplate(emailData)
+        };
+        emails.push(adminMailOptions);
+      }
+    }
+    
+    // Send all emails
+    if (emails.length === 0) {
+      console.log('No emails to send for product order');
+      return { success: true, message: 'No emails to send' };
+    }
+    
+    await sendEmails(emails);
+    return { success: true, message: `Sent ${emails.length} emails for product order` };
+  } catch (error) {
+    console.error('Error sending product order emails:', error);
+    return { success: false, message: error.message };
+  }
+}
+
 // Send gift card emails
-export async function sendGiftCardEmails(giftCardData) {
+async function sendGiftCardEmails(giftCardData) {
   const emails = [];
   
   // Create email for buyer
@@ -86,7 +159,7 @@ export async function sendGiftCardEmails(giftCardData) {
 }
 
 // Send gift card update email
-export async function sendGiftCardUpdateEmail(giftCardData, updateType, updateDetails) {
+async function sendGiftCardUpdateEmail(giftCardData, updateType, updateDetails) {
   // Only send to buyer email
   if (!giftCardData.buyerEmail) {
     console.log('No buyer email to send update notification');
@@ -110,7 +183,7 @@ export async function sendGiftCardUpdateEmail(giftCardData, updateType, updateDe
 }
 
 // Send order confirmation emails
-export async function sendOrderConfirmationEmails(orderData) {
+async function sendOrderConfirmationEmails(orderData) {
   const emails = [];
   
   // Create email for customer
@@ -154,7 +227,7 @@ export async function sendOrderConfirmationEmails(orderData) {
 }
 
 // Send order status update email
-export async function sendOrderStatusUpdateEmail(orderData) {
+async function sendOrderStatusUpdateEmail(orderData) {
   // Only send to customer email
   if (!orderData.customerEmail) {
     console.log('No customer email to send status update');
@@ -178,7 +251,7 @@ export async function sendOrderStatusUpdateEmail(orderData) {
 }
 
 // Send admin login OTP email
-export async function sendAdminLoginOTPEmail(email, otp, deviceInfo) {
+async function sendAdminLoginOTPEmail(email, otp, deviceInfo) {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
@@ -196,8 +269,8 @@ export async function sendAdminLoginOTPEmail(email, otp, deviceInfo) {
 }
 
 // Send admin login alert email
-export async function sendAdminLoginAlertEmail(loginData) {
-  // Send to all admin emails except the one logging in
+async function sendAdminLoginAlertEmail(loginData) {
+  // Get all admin emails, including the one logging in
   if (!process.env.ADMIN_EMAILS) {
     console.log('No admin emails configured for login alerts');
     return { success: true, message: 'No emails to send' };
@@ -205,19 +278,22 @@ export async function sendAdminLoginAlertEmail(loginData) {
   
   const adminEmails = process.env.ADMIN_EMAILS
     .split(',')
-    .map(email => email.trim())
-    .filter(email => email !== loginData.email); // Don't send to the admin who's logging in
+    .map(email => email.trim());
   
   if (adminEmails.length === 0) {
-    console.log('No other admin emails to send login alert');
+    console.log('No admin emails configured for login alerts');
     return { success: true, message: 'No emails to send' };
   }
   
+  // Generate a security token for emergency logout
+  const securityToken = generateSecurityToken();
+  
+  // Create email options
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: adminEmails.join(','),
     subject: `Admin ${loginData.success ? 'Login Success' : 'Login Attempt'} - ${loginData.email}`,
-    html: authEmails.getAdminLoginAlertEmailTemplate(loginData)
+    html: authEmails.getAdminLoginAlertEmailTemplate(loginData, securityToken)
   };
   
   try {
@@ -229,8 +305,9 @@ export async function sendAdminLoginAlertEmail(loginData) {
   }
 }
 
-export default {
+export { 
   sendEmails,
+  sendOrderEmails,
   sendGiftCardEmails,
   sendGiftCardUpdateEmail,
   sendOrderConfirmationEmails,

@@ -6,6 +6,7 @@ const API_BASE_URL = 'http://localhost:3001';
 
 // Local storage keys
 const ADMIN_AUTH_KEY = 'maitri_admin_auth';
+const LAST_FORCED_LOGOUT_CHECK = 'maitri_last_forced_logout_check';
 
 export interface AdminAuth {
   isAuthenticated: boolean;
@@ -21,9 +22,66 @@ export function isAdminAuthenticated(): boolean {
   
   try {
     const auth = JSON.parse(authData) as AdminAuth;
+    
+    // Check for forced logout - perform async check without waiting
+    checkForcedLogout().catch(error => {
+      console.error('Error checking for forced logout:', error);
+    });
+    
     return auth.isAuthenticated === true && !!auth.token;
   } catch (error) {
     console.error('Error parsing auth data:', error);
+    return false;
+  }
+}
+
+// Check for forced logout
+export async function checkForcedLogout(): Promise<boolean> {
+  try {
+    // Only check once per minute to avoid excessive API calls
+    const lastCheck = localStorage.getItem(LAST_FORCED_LOGOUT_CHECK);
+    const now = Date.now();
+    
+    if (lastCheck && now - parseInt(lastCheck) < 60000) {
+      return false;
+    }
+    
+    // Update last check time
+    localStorage.setItem(LAST_FORCED_LOGOUT_CHECK, now.toString());
+    
+    // If not authenticated, no need to check
+    if (!localStorage.getItem(ADMIN_AUTH_KEY)) {
+      return false;
+    }
+    
+    // Check for forced logout
+    const response = await axios.get(`${API_BASE_URL}/api/auth/check-forced-logout`);
+    
+    if (response.data.forcedLogout) {
+      // Get the authentication data to check if we need to log out
+      const authData = localStorage.getItem(ADMIN_AUTH_KEY);
+      if (!authData) return false;
+      
+      const auth = JSON.parse(authData) as AdminAuth;
+      const authTimestamp = parseInt(auth.token.split(':')[1] || '0');
+      
+      // If authentication happened after forced logout, don't log out
+      if (authTimestamp > response.data.timestamp) {
+        return false;
+      }
+      
+      // Otherwise, log the user out
+      adminLogout();
+      
+      // Redirect to login page with a message
+      window.location.href = '/admin/login?reason=security';
+      
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking for forced logout:', error);
     return false;
   }
 }
@@ -85,7 +143,7 @@ export async function validateAdminCredentials(email: string, username: string, 
   try {
     const deviceInfo = getDeviceInfo();
     
-    const response = await axios.post(`${API_BASE_URL}/api/admin/validate-credentials`, {
+    const response = await axios.post(`${API_BASE_URL}/api/auth/validate-credentials`, {
       email,
       username,
       password,
@@ -121,22 +179,26 @@ export async function verifyAdminOTP(email: string, otp: string): Promise<{
   try {
     const deviceInfo = getDeviceInfo();
     
-    const response = await axios.post(`${API_BASE_URL}/api/admin/verify-otp`, {
+    const response = await axios.post(`${API_BASE_URL}/api/auth/verify-otp`, {
       email,
       otp,
       deviceInfo
     });
     
     if (response.data.success && response.data.token) {
-      // Store authentication data
+      // Store authentication data with fallbacks for missing properties
       const authData: AdminAuth = {
         isAuthenticated: true,
-        username: response.data.admin.username,
-        email: response.data.admin.email,
+        // Use fallbacks if admin object is missing or has missing properties
+        username: response.data.admin?.username || email.split('@')[0] || 'admin',
+        email: response.data.admin?.email || email,
         token: response.data.token
       };
       
       localStorage.setItem(ADMIN_AUTH_KEY, JSON.stringify(authData));
+      
+      // Reset the forced logout check timestamp
+      localStorage.removeItem(LAST_FORCED_LOGOUT_CHECK);
     }
     
     return response.data;
@@ -158,4 +220,5 @@ export async function verifyAdminOTP(email: string, otp: string): Promise<{
 // Logout admin
 export function adminLogout(): void {
   localStorage.removeItem(ADMIN_AUTH_KEY);
+  localStorage.removeItem(LAST_FORCED_LOGOUT_CHECK);
 } 

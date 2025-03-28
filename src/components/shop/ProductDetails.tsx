@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check } from 'lucide-react';
+import productImage from '../../../public/product_image.jpg'
 
 interface ProductDetailsProps {
   symptoms: string[];
@@ -25,9 +26,9 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({ symptoms }) => {
           </p>
         </div>
         <img
-          src="https://i.postimg.cc/CLz1kf3C/20250321-171231.jpg"
+          src={productImage}
           alt="Chakra Model Harmonizer"
-          className="rounded-lg shadow-lg w-full"
+          className="rounded-lg shadow-lg w-2/5"
         />
       </div>
 

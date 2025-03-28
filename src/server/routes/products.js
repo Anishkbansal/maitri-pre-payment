@@ -1,6 +1,6 @@
 import express from 'express';
 import productsDb from '../db/products.js';
-import emailService from '../emails/index.js';
+import * as emailService from '../emails/index.js';
 
 const router = express.Router();
 

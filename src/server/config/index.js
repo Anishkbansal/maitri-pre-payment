@@ -20,20 +20,26 @@ if (result.error) {
 // Debug environment variables
 console.log('Environment variables:');
 console.log('EMAIL_USER:', process.env.EMAIL_USER);
-console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '[PASSWORD SET]' : '[PASSWORD NOT SET]');
+console.log('EMAIL_PASS:', process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD ? '[PASSWORD SET]' : '[PASSWORD NOT SET]');
 console.log('ADMIN_EMAILS:', process.env.ADMIN_EMAILS);
+console.log('ADMIN_USERNAME:', process.env.ADMIN_USERNAME || '[NOT SET]');
+console.log('ADMIN_PASSWORD_HASH:', process.env.ADMIN_PASSWORD_HASH ? '[HASH SET]' : '[HASH NOT SET]');
 
 // Get admin emails from environment variable
 export const adminEmails = process.env.ADMIN_EMAILS 
   ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim())
   : [];
 
+// Admin credentials
+export const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+export const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
+
 // Create email transporter
 export const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD // This should be an app password for Gmail
+    pass: process.env.EMAIL_PASS
   }
 });
 
@@ -55,6 +61,8 @@ export const OTP_LENGTH = 6;
 
 export default {
   adminEmails,
+  ADMIN_USERNAME,
+  ADMIN_PASSWORD_HASH,
   transporter,
   DB_PATH,
   PRODUCTS_DB_PATH,

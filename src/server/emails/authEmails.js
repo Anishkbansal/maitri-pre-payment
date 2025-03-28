@@ -104,10 +104,14 @@ export function getAdminLoginOTPEmailTemplate(email, otp, deviceInfo) {
 }
 
 // Admin login alert email template
-export function getAdminLoginAlertEmailTemplate(loginData) {
+export function getAdminLoginAlertEmailTemplate(loginData, securityToken) {
   const loginStatus = loginData.success ? 
     { text: 'Successful Login', color: '#4caf50' } : 
     { text: 'Failed Login Attempt', color: '#f44336' };
+  
+  // Create security logout URL with the token if provided
+  const securityLogoutUrl = securityToken ? 
+    `${process.env.API_URL || 'http://localhost:3001'}/api/auth/security/logout-all?token=${securityToken}` : '';
   
   return `
     <!DOCTYPE html>
@@ -143,6 +147,17 @@ export function getAdminLoginAlertEmailTemplate(loginData) {
           padding: 15px;
           margin: 20px 0;
         }
+        .security-button {
+          display: block;
+          background-color: #d32f2f;
+          color: white;
+          text-align: center;
+          padding: 12px 20px;
+          text-decoration: none;
+          font-weight: bold;
+          border-radius: 4px;
+          margin: 25px 0;
+        }
         .footer {
           margin-top: 30px;
           font-size: 12px;
@@ -169,9 +184,22 @@ export function getAdminLoginAlertEmailTemplate(loginData) {
           ${loginData.success ? '' : `<p><strong>Reason:</strong> ${loginData.reason || 'Unknown error'}</p>`}
         </div>
         
-        ${!loginData.success ? `
-          <p style="color: #f44336; font-weight: bold;">
-            If this was not you, please secure your account immediately and contact the system administrator.
+        <p style="font-weight: bold;">
+          If this login attempt was not made by you, this may indicate unauthorized access to the admin panel.
+        </p>
+        
+        ${securityToken ? `
+          <p style="color: #d32f2f; font-weight: bold;">
+            Click the button below to immediately log out all admin users and secure the system:
+          </p>
+          
+          <a href="${securityLogoutUrl}" class="security-button">
+            SECURE ADMIN PANEL - LOG OUT ALL USERS
+          </a>
+          
+          <p style="font-size: 13px; color: #666;">
+            This security action will immediately terminate all active admin sessions.
+            All administrators will need to log in again.
           </p>
         ` : ''}
         

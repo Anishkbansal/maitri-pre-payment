@@ -17,6 +17,7 @@ import AboutPage from './pages/AboutPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import CookiePolicyPage from './pages/CookiePolicyPage';
+import PaymentCompletePage from './pages/PaymentCompletePage';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
       <Route path="/acugraph" element={<Layout><AcugraphPage /></Layout>} />
       <Route path="/shop" element={<Layout><ShopPage /></Layout>} />
       <Route path="/gift-cards" element={<Layout><GiftCardPage /></Layout>} />
+      <Route path="/payment-complete" element={<PaymentCompletePage />} />
       
       {/* Admin routes */}
       <Route path="/admin/login" element={<Layout><AdminLoginPage /></Layout>} />
