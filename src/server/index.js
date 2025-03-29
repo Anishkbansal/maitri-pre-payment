@@ -9,6 +9,7 @@ import giftCardRoutes from './routes/giftCards.js';
 import productRoutes from './routes/products.js';
 import authRoutes from './routes/auth.js';
 import paymentRoutes from './routes/payments.js';
+import setupRoutes from './routes/setup.js';
 
 // Import database functions
 import { updateExpiredGiftCards } from './db/giftCards.js';
@@ -19,6 +20,7 @@ const app = express();
 // Get current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..', '..');
 
 // Middleware
 app.use(cors());
@@ -41,6 +43,18 @@ app.use('/api/gift-cards', giftCardRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/setup', setupRoutes);
+
+// In production, serve the static files from the build directory
+if (process.env.NODE_ENV === 'production') {
+  const buildPath = path.join(rootDir, 'dist');
+  app.use(express.static(buildPath));
+  
+  // Serve the index.html for any route not matched by API routes
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+}
 
 // Schedule automatic update of expired gift cards
 // Run once at startup
@@ -55,6 +69,15 @@ setInterval(() => {
 // Default route
 app.get('/', (req, res) => {
   res.send('API is running');
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Export the app

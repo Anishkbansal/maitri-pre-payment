@@ -249,3 +249,104 @@ To configure Stripe for payment processing:
 3. For testing Klarna:
    - Enter "United Kingdom" as country
    - Ensure order amount is at least £3 
+
+## Deployment Guide
+
+### Preparing for Production Deployment
+
+1. Update the `.env` file with production values:
+   - Change `CLIENT_URL` and `API_URL` to your production domain
+   - Set `NODE_ENV=production`
+   - Configure Gmail with a dedicated email account for sending emails
+   - Update Stripe keys to production keys (not test keys)
+   - Generate a secure `JWT_SECRET` for authentication
+
+2. Build the application:
+   ```
+   npm run build
+   ```
+   This will create a `dist` folder with optimized production assets.
+
+3. Start the server in production mode:
+   ```
+   NODE_ENV=production npm run server
+   ```
+
+### Deployment Options
+
+#### Option 1: Traditional Node.js Hosting (e.g., DigitalOcean, AWS EC2, Heroku)
+
+1. Clone the repository on your server
+2. Install dependencies:
+   ```
+   npm install --production
+   ```
+3. Set up your `.env` file with production values
+4. Build the application:
+   ```
+   npm run build
+   ```
+5. Start the server with a process manager like PM2:
+   ```
+   npm install -g pm2
+   pm2 start server.js --name "maitri-app"
+   ```
+6. Set up a reverse proxy with Nginx or Apache
+7. Configure SSL with Let's Encrypt
+
+#### Option 2: Docker Deployment
+
+1. Create a `Dockerfile` in the root directory:
+   ```dockerfile
+   FROM node:16-alpine
+   
+   WORKDIR /app
+   
+   COPY package*.json ./
+   RUN npm install --production
+   
+   COPY . .
+   RUN npm run build
+   
+   EXPOSE 3001
+   
+   CMD ["node", "server.js"]
+   ```
+
+2. Build the Docker image:
+   ```
+   docker build -t maitri-app .
+   ```
+
+3. Run the container:
+   ```
+   docker run -p 3001:3001 --env-file .env maitri-app
+   ```
+
+#### Option 3: Serverless Deployment (Vercel, Netlify)
+
+For this option, you'll need to separate the frontend and backend:
+
+1. **Frontend (Vite/React)**: Deploy the `dist` folder to Vercel or Netlify
+2. **Backend (Express)**: Deploy to a serverless platform like Vercel Functions, AWS Lambda, or keep it on a traditional server
+
+### Production Checklist
+
+Before going live, ensure you've:
+
+- [x] Updated all API keys to production versions
+- [x] Configured proper email settings
+- [x] Set up SSL for secure connections
+- [x] Updated all URLs to your production domain
+- [x] Set `NODE_ENV=production`
+- [x] Tested the complete payment flow in production environment
+- [x] Generated strong, unique passwords and secrets
+- [x] Configured database backups (for gift card and product data)
+- [x] Set up logging and monitoring
+
+### Monitoring and Maintenance
+
+1. Set up application monitoring (e.g., Sentry, New Relic)
+2. Configure regular database backups
+3. Set up automated security updates
+4. Implement a process for deploying updates 

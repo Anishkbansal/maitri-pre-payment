@@ -16,6 +16,9 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_STRIPE_PUBLIC_KEY': JSON.stringify(env.VITE_STRIPE_PUBLIC_KEY),
       'import.meta.env.VITE_ENABLE_KLARNA': JSON.stringify(env.VITE_ENABLE_KLARNA),
       'import.meta.env.VITE_KLARNA_MIN_AMOUNT': JSON.stringify(env.VITE_KLARNA_MIN_AMOUNT)
+    },
+    server: {
+      port: 8000
     }
   };
 });

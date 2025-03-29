@@ -9,7 +9,17 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node start-server.js",
-    "start": "concurrently \"npm run server\" \"npm run dev\""
+    "start": "concurrently \"npm run server\" \"npm run dev\"",
+    "docker:build": "docker build -t maitri-app .",
+    "docker:run": "docker run -d -p 3000:3000 --env-file .env -v ./data:/app/data --name maitri-app maitri-app",
+    "docker:stop": "docker stop maitri-app && docker rm maitri-app",
+    "docker:logs": "docker logs -f maitri-app",
+    "docker:restart": "npm run docker:stop || true && npm run docker:build && npm run docker:run",
+    "compose:up": "docker-compose up -d",
+    "compose:down": "docker-compose down",
+    "compose:logs": "docker-compose logs -f",
+    "compose:restart": "docker-compose down && docker-compose up -d --build",
+    "update-admin": "node scripts/update-admin-emails.js"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^2.5.0",

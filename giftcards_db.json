@@ -1,0 +1,75 @@
+{
+  "giftCards": [
+    {
+      "id": "1742999917929",
+      "code": "NQRF-A6H6-CG",
+      "originalAmount": 56,
+      "currentAmount": 55.27,
+      "buyerName": "anish",
+      "buyerEmail": "anishkbansal2007@gmail.com",
+      "recipientName": "anish",
+      "recipientEmail": "anishkbansal2007@gmail.com",
+      "purchaseDate": "3/26/2025",
+      "expiryDate": "3/26/2026",
+      "message": "sdfsfds",
+      "status": "active",
+      "history": [
+        {
+          "date": "2025-03-26T14:38:37.929Z",
+          "action": "created",
+          "amount": 56,
+          "balance": 56,
+          "note": "Gift card created"
+        },
+        {
+          "date": "2025-03-27T15:40:52.440Z",
+          "action": "amount_update",
+          "previousAmount": 56,
+          "newAmount": 55.27,
+          "balance": 55.27,
+          "note": "Amount updated"
+        }
+      ]
+    },
+    {
+      "id": "1743002621241",
+      "code": "DJL9-ZPP7-DF",
+      "originalAmount": 72,
+      "currentAmount": 56,
+      "buyerName": "anish",
+      "buyerEmail": "anishkbansal2007@gmail.com",
+      "recipientName": "Dr Arun",
+      "recipientEmail": "anishkbansal2007@gmail.com",
+      "purchaseDate": "3/26/2025",
+      "expiryDate": "3/26/2026",
+      "message": "wda",
+      "status": "closed",
+      "history": [
+        {
+          "date": "2025-03-26T15:23:41.241Z",
+          "action": "created",
+          "amount": 72,
+          "balance": 72,
+          "note": "Gift card created"
+        },
+        {
+          "date": "2025-03-26T15:32:15.854Z",
+          "action": "amount_update",
+          "previousAmount": 72,
+          "newAmount": 56,
+          "balance": 56,
+          "note": "lali ho"
+        },
+        {
+          "date": "2025-03-26T15:33:20.460Z",
+          "action": "status_update",
+          "previousStatus": "active",
+          "newStatus": "closed",
+          "balance": 56,
+          "note": "Status changed from active to closed"
+        }
+      ]
+    }
+  ],
+  "lastUpdated": "2025-03-27T15:40:52.440Z"
+}

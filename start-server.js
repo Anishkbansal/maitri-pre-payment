@@ -39,6 +39,6 @@ server.on('close', code => {
 
 // Display instructions for developers
 console.log('\n===== Server Started =====');
-console.log('API is running at http://localhost:3001');
+console.log(`API is running at http://localhost:${process.env.PORT || 3000}`);
 console.log('Press Ctrl+C to stop the server');
 console.log('============================\n'); 

@@ -1,5 +1,5 @@
 // API Base URL - Change this to match your server URL when deployed
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // Export API_BASE_URL for use in other utilities
 export { API_BASE_URL };
@@ -13,6 +13,36 @@ interface GiftCard {
   purchaseDate: string | null;
   expiryDate: string | null;
   [key: string]: any; // Allow for additional properties
+}
+
+// Setup email configuration
+export async function setupEmailConfig(
+  email: string,
+  password: string,
+  adminEmails: string[]
+) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/setup/email-config`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        adminEmails,
+      }),
+    });
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error setting up email configuration:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
 }
 
 // Send order confirmation emails

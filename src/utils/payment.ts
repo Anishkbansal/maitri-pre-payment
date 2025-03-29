@@ -1,5 +1,5 @@
-// Define the API base URL directly instead of importing it
-const API_BASE_URL = 'http://localhost:3001/api';
+// Define the API base URL dynamically based on environment
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 /**
  * Create a payment intent with the Stripe API

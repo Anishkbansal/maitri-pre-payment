@@ -16,8 +16,6 @@ yarn-error.log
 .env.production.local
 
 # Database files
-giftcards_db.json
-products_db.json
 
 # Logs
 logs

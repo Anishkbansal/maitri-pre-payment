@@ -1,0 +1,52 @@
+{
+  "products": [
+    {
+      "id": "harm-001",
+      "name": "Harmonizer",
+      "description": "Our Products generate Powerful Scalar Frequency Waves that produce specific therapeutic and healing effects on the body.",
+      "price": 350,
+      "stock": 14,
+      "imageUrl": "/images/harmonizer.jpg"
+    }
+  ],
+  "orders": [
+    {
+      "id": "2LGIOL8Z",
+      "productId": "harm-001",
+      "productName": "Harmonizer",
+      "quantity": 1,
+      "totalPrice": 366,
+      "customerName": "Anish Bansal",
+      "customerEmail": "Anishkbansal2007@gmail.com",
+      "shippingAddress": "Street Nò 1, Bakloh, 141010, India",
+      "status": "completed",
+      "orderDate": "2025-03-26T16:56:24.491Z",
+      "history": [
+        {
+          "date": "2025-03-26T16:56:24.491Z",
+          "status": "pending",
+          "note": "Order created"
+        },
+        {
+          "date": "2025-03-26T16:57:01.717Z",
+          "status": "out_for_delivery",
+          "previousStatus": "pending",
+          "note": "Status changed from pending to out_for_delivery"
+        },
+        {
+          "date": "2025-03-26T16:57:04.190Z",
+          "status": "out_for_delivery",
+          "previousStatus": "out_for_delivery",
+          "note": "Status changed from out_for_delivery to out_for_delivery"
+        },
+        {
+          "date": "2025-03-26T16:57:22.274Z",
+          "status": "completed",
+          "previousStatus": "out_for_delivery",
+          "note": "Status changed from out_for_delivery to completed"
+        }
+      ]
+    }
+  ],
+  "lastUpdated": "2025-03-27T15:41:22.314Z"
+}
